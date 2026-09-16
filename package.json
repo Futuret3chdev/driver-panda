@@ -1,0 +1,16 @@
+{
+  "name": "driver-panda",
+  "version": "1.0.0",
+  "private": true,
+  "description": "iPhone-first command center for Uber, Dasher, and Hello Panda drivers.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host --port 4173",
+    "test": "node --test tests/*.test.js"
+  },
+  "devDependencies": {
+    "vite": "^6.3.6"
+  }
+}

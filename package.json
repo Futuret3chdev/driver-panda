@@ -2,7 +2,7 @@
   "name": "driver-panda",
   "version": "1.0.0",
   "private": true,
-  "description": "iPhone-first command center for Uber, Dasher, and Hello Panda drivers.",
+  "description": "MT ECO SYSTEM. Developed by Futuret3ch, T3x and MemeTorrent. iPhone command center for Uber, Dasher, and Hello Panda drivers.",
   "type": "module",
   "scripts": {
     "dev": "vite",

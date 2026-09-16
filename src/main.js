@@ -97,6 +97,13 @@ function onlineLabel(id) {
   return mins >= 60 ? `Live ${Math.floor(mins / 60)}h ${mins % 60}m` : `Live ${mins}m`;
 }
 
+const ECO = 'MT ECO SYSTEM';
+const DEVELOPED = 'Developed by Futuret3ch, T3x and MemeTorrent';
+
+function creditLine() {
+  return `<p class="credit"><span class="eco-mark">${ECO}</span>${DEVELOPED}</p>`;
+}
+
 function showToast(msg) {
   clearTimeout(toastTimer);
   let el = document.getElementById('toast');
@@ -155,9 +162,6 @@ function homeView() {
   const week = weekSummary();
   const goal = Number(state.profile.dailyGoal) || 0;
   const pct = goal ? Math.min(100, Math.round((today.gross / goal) * 100)) : 0;
-  const name = state.profile.name || 'driver';
-  const hour = new Date().getHours();
-  const hello = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const install = !isStandalone()
     ? `<div class="install">
         <b>Add to iPhone Home Screen</b>
@@ -171,7 +175,7 @@ function homeView() {
         <img src="/icons/icon-192.png" alt="Driver Panda" />
         <div>
           <h1>Driver Panda</h1>
-          <p>${hello}, ${escapeHtml(name)}</p>
+          <p>${ECO}</p>
         </div>
       </div>
       <div class="pill">${new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
@@ -211,6 +215,7 @@ function homeView() {
       <h2>Recent trips</h2>
       ${recentTrips(6)}
     </div>
+    ${creditLine()}
   </div>${tabs()}`;
 }
 
@@ -270,6 +275,7 @@ function statsView() {
       <div class="row"><span>Net</span><b>${money(s.net)}</b></div>
       <p class="disclaimer">Mileage uses the IRS business rate: 72.5¢/mi Jan–Jun 2026, 76¢/mi from Jul 1, 2026. Estimates only — not tax advice.</p>
     </div>
+    ${creditLine()}
   </div>${tabs()}`;
 }
 
@@ -291,6 +297,7 @@ function appsView() {
       </div>`;
     }).join('')}
     <p class="disclaimer">Driver Panda cannot log into Uber, DoorDash, or HungryPanda for you — those apps don’t offer a public driver API. Mark yourself live here, then jump into the official app.</p>
+    ${creditLine()}
   </div>${tabs()}`;
 }
 
@@ -346,7 +353,13 @@ Local token: ${token}</div>
       <button class="btn ghost" data-demo>Load sample week</button>
       <button class="btn danger" data-reset>Clear this phone</button>
     </div>
+    <div class="card">
+      <h2>About</h2>
+      <p class="small" style="margin:0 0 8px"><b>${ECO}</b></p>
+      <p class="small muted" style="margin:0">${DEVELOPED}.</p>
+    </div>
     <p class="disclaimer" style="margin-top:14px">Driver Panda is not affiliated with Uber, DoorDash, HungryPanda, or Hello Panda. Use official apps for offers, navigation, and payouts.</p>
+    ${creditLine()}
   </div>${tabs()}`;
 }
 
@@ -396,6 +409,7 @@ function expenseSheet() {
 function welcomeView() {
   return `<div class="welcome">
     <img class="mascot" src="/icons/icon-192.png" alt="Driver Panda" />
+    <p class="eco-mark">${ECO}</p>
     <h1>Driver Panda</h1>
     <p class="lead">One iPhone home screen for Uber, Dasher, and Hello Panda. Track every drop and jump into the right app.</p>
     <div class="tags">
@@ -409,7 +423,8 @@ function welcomeView() {
       <button class="btn" data-start>Start on this iPhone</button>
       <button class="btn ghost" data-demo-start>Preview with sample trips</button>
     </div>
-    <p class="disclaimer" style="margin-top:14px">Works in Safari. Add to Home Screen for the full app. Not affiliated with Uber, DoorDash, or HungryPanda.</p>
+    <p class="credit" style="margin-top:14px">${DEVELOPED}.</p>
+    <p class="disclaimer">Works in Safari. Add to Home Screen for the full app. Not affiliated with Uber, DoorDash, or HungryPanda.</p>
   </div>`;
 }
 

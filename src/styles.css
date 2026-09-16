@@ -223,14 +223,17 @@ input:focus, select:focus, textarea:focus { border-color: rgba(200, 242, 74, 0.5
 }
 .tabs button {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  min-height: 44px;
+  min-height: 48px;
   justify-content: center;
+  position: relative;
+  z-index: 2;
+  width: 100%;
 }
 .tabs button.active { color: var(--text); }
 .tabs .plus {
@@ -243,6 +246,12 @@ input:focus, select:focus, textarea:focus { border-color: rgba(200, 242, 74, 0.5
   line-height: 1;
   margin-top: -16px;
   box-shadow: 0 10px 24px rgba(200, 242, 74, 0.25);
+  z-index: 3;
+  justify-self: center;
+}
+.logout-pill {
+  color: var(--text) !important;
+  border: 1px solid var(--line);
 }
 
 .sheet-bg {

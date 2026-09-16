@@ -55,14 +55,6 @@ function startOfMonth(d = new Date()) {
   return x.getTime();
 }
 
-function isIOS() {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-}
-
-function isStandalone() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-}
-
 function todaySummary() {
   return summarize(state.trips, state.expenses, startOfDay(), startOfDay() + 86400000);
 }
@@ -176,13 +168,13 @@ function showToast(msg) {
 
 function tabs() {
   const item = (id, label, icon) =>
-    `<button class="${tab === id ? 'active' : ''}" data-tab="${id}" aria-label="${label}">${icon}<span>${label}</span></button>`;
+    `<button type="button" class="${tab === id ? 'active' : ''}" data-tab="${id}" aria-label="${label}">${icon}<span>${label}</span></button>`;
   return `<nav class="tabs">
     ${item('home', 'Home', '⌂')}
     ${item('stats', 'Pay', '▣')}
-    <button class="plus" data-open="log" aria-label="Log trip">+</button>
+    <button class="plus" type="button" data-open="log" aria-label="Log trip">+</button>
     ${item('apps', 'Apps', '◎')}
-    ${item('more', 'More', '•••')}
+    ${item('more', 'More', '☰')}
   </nav>`;
 }
 
@@ -215,13 +207,6 @@ function homeView() {
   const week = weekSummary();
   const goal = Number(state.profile.dailyGoal) || 0;
   const pct = goal ? Math.min(100, Math.round((today.gross / goal) * 100)) : 0;
-  const install = !isStandalone()
-    ? `<div class="install">
-        <b>Add to iPhone Home Screen</b>
-        <p class="small muted" style="margin:6px 0 0">Safari → Share → Add to Home Screen. Name it T3x Shift. Then Uber, Dasher, and Hello Panda are one tap away.</p>
-      </div>`
-    : '';
-
   return `<div class="shell">
     <div class="topbar">
       <div class="brand">
@@ -231,9 +216,8 @@ function homeView() {
           <p>${ECO}</p>
         </div>
       </div>
-      <div class="pill">${new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+      <button class="pill logout-pill" data-logout type="button">Log out</button>
     </div>
-    ${install}
     <div class="hero-money">
       <div class="label">Today across all apps</div>
       <div class="dollars">${money(today.gross)}</div>
@@ -309,7 +293,7 @@ function statsView() {
   const s = range === 'today' ? todaySummary() : range === 'month' ? monthSummary() : weekSummary();
   const maxPlat = Math.max(1, ...PLATFORMS.map((p) => s.byPlatform[p.id]?.gross || 0));
   return `<div class="shell">
-    <div class="topbar"><div class="brand"><div><h1>Pay</h1><p>Combined earnings</p></div></div></div>
+    <div class="topbar"><div class="brand"><div><h1>Pay</h1><p>Combined earnings</p></div></div><button class="pill logout-pill" data-logout type="button">Log out</button></div>
     <div class="seg">
       ${['today', 'week', 'month']
         .map(
@@ -354,7 +338,7 @@ function statsView() {
 
 function appsView() {
   return `<div class="shell">
-    <div class="topbar"><div class="brand"><div><h1>Apps</h1><p>Go online without juggling three home screens</p></div></div></div>
+    <div class="topbar"><div class="brand"><div><h1>Apps</h1><p>Go online without juggling three home screens</p></div></div><button class="pill logout-pill" data-logout type="button">Log out</button></div>
     ${PLATFORMS.map((p) => {
       const on = state.online[p.id]?.on;
       const busy = state.activeJob?.platform === p.id;
@@ -385,7 +369,11 @@ function moreView() {
   const token = state.apiToken;
   const origin = location.origin;
   return `<div class="shell">
-    <div class="topbar"><div class="brand"><div><h1>More</h1><p>Garage, API, export</p></div></div></div>
+    <div class="topbar">
+      <div class="brand"><div><h1>More</h1><p>Garage, API, export</p></div></div>
+      <button class="pill logout-pill" data-logout type="button">Log out</button>
+    </div>
+    <button class="btn danger" data-logout type="button" style="margin-bottom:12px">Log out</button>
     <div class="card">
       <h2>Profile</h2>
       <div class="field"><label>Name</label><input id="name" value="${escapeHtml(state.profile.name)}" /></div>
@@ -504,7 +492,7 @@ function welcomeView() {
       <button class="btn ghost" data-demo-start>Preview with sample trips</button>
     </div>
     <p class="credit" style="margin-top:14px">${DEVELOPED}.</p>
-    <p class="disclaimer">Works in Safari. Add to Home Screen for the full app. Not affiliated with Uber, DoorDash, or HungryPanda.</p>
+    <p class="disclaimer">Not affiliated with Uber, DoorDash, or HungryPanda.</p>
   </div>`;
 }
 
@@ -545,12 +533,24 @@ function exportCsv() {
 }
 
 root.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-tab],[data-open],[data-open-app],[data-toggle],[data-store],[data-plat],[data-save-trip],[data-save-expense],[data-save-profile],[data-start],[data-demo],[data-demo-start],[data-export],[data-reset],[data-range],[data-close-sheet],[data-start-job],[data-end-job]');
+  const t = e.target.closest('[data-tab],[data-open],[data-open-app],[data-toggle],[data-store],[data-plat],[data-save-trip],[data-save-expense],[data-save-profile],[data-start],[data-demo],[data-demo-start],[data-export],[data-reset],[data-range],[data-close-sheet],[data-start-job],[data-end-job],[data-logout]');
   if (!t) return;
   if (t.disabled || t.getAttribute('disabled') !== null) return;
 
+  if (t.hasAttribute('data-logout')) {
+    if (state.activeJob && !confirm('A job is in progress. Log out anyway?')) return;
+    state.activeJob = null;
+    for (const p of PLATFORMS) state.online[p.id] = { on: false, since: null };
+    state.profile.onboarded = false;
+    persist();
+    tab = 'home';
+    sheet = null;
+    render();
+    return;
+  }
   if (t.dataset.tab) {
     tab = t.dataset.tab;
+    sheet = null;
     render();
     return;
   }

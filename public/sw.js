@@ -1,4 +1,4 @@
-const CACHE = 't3x-shift-v2';
+const CACHE = 't3x-shift-v3';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

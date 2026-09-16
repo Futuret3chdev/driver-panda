@@ -1,6 +1,7 @@
 # Driver Panda
 
-Live: **[https://driver-panda.vercel.app](https://driver-panda.vercel.app)**
+Live: **[https://driver-panda.vercel.app](https://driver-panda.vercel.app)**  
+GitHub: **[https://github.com/Futuret3chdev/driver-panda](https://github.com/Futuret3chdev/driver-panda)**
 
 iPhone-first command center for people who drive **Uber**, **Dasher (DoorDash)**, and **Hello Panda (HungryPanda / DeliveryPanda)** in the same shift.
 

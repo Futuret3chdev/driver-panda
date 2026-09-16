@@ -76,17 +76,69 @@ function monthSummary() {
 }
 
 function openPlatform(p) {
-  const started = Date.now();
-  window.location.href = p.openUrl;
-  setTimeout(() => {
-    if (Date.now() - started < 1600) window.open(p.storeUrl, '_blank');
-  }, 900);
+  // Only https App Store links — custom schemes (uberdriver://, doordashdasher://)
+  // make Safari say “cannot open the page because the address is invalid”.
+  const url = p.storeUrl || p.openUrl;
+  const a = document.createElement('a');
+  a.href = url;
+  a.rel = 'noopener';
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+function pauseOthers(id) {
+  for (const p of PLATFORMS) {
+    if (p.id !== id) state.online[p.id] = { on: false, since: null };
+  }
+}
+
+function otherNames(id) {
+  return PLATFORMS.filter((p) => p.id !== id)
+    .map((p) => p.short)
+    .join(' + ');
 }
 
 function toggleOnline(id) {
+  if (state.activeJob && state.activeJob.platform !== id) {
+    const hold = platformById[state.activeJob.platform]?.name || 'the other app';
+    showToast(`Finish the ${hold} job first`);
+    return;
+  }
   const cur = state.online[id] || { on: false, since: null };
-  state.online[id] = cur.on ? { on: false, since: null } : { on: true, since: new Date().toISOString() };
+  if (cur.on) {
+    state.online[id] = { on: false, since: null };
+  } else {
+    pauseOthers(id);
+    state.online[id] = { on: true, since: new Date().toISOString() };
+    showToast(`Live on ${platformById[id].name} — pause ${otherNames(id)} in those apps`);
+  }
   persist();
+  render();
+}
+
+function startJob(id) {
+  if (state.activeJob && state.activeJob.platform !== id) {
+    showToast(`Already on a ${platformById[state.activeJob.platform].name} job`);
+    return;
+  }
+  pauseOthers(id);
+  state.online[id] = { on: true, since: state.online[id]?.since || new Date().toISOString() };
+  state.activeJob = { platform: id, startedAt: new Date().toISOString() };
+  persist();
+  render();
+  showToast(`${platformById[id].name} job — go offline in ${otherNames(id)}`);
+}
+
+function endJob() {
+  const job = state.activeJob;
+  if (!job) return;
+  const minutes = Math.max(1, Math.round((Date.now() - new Date(job.startedAt).getTime()) / 60000));
+  sheet = { type: 'log', platform: job.platform, minutes };
+  state.activeJob = null;
+  persist();
+  tab = 'home';
   render();
 }
 
@@ -112,7 +164,7 @@ function showToast(msg) {
     el = document.createElement('div');
     el.id = 'toast';
     el.style.cssText =
-      'position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#c8f24a;color:#142000;padding:10px 14px;border-radius:999px;font-weight:700;font-size:13px;z-index:50;white-space:nowrap';
+      'position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#c8f24a;color:#142000;padding:10px 14px;border-radius:16px;font-weight:700;font-size:12px;z-index:50;max-width:min(340px,92vw);text-align:center;line-height:1.3';
     document.body.appendChild(el);
   }
   el.textContent = msg;
@@ -193,16 +245,36 @@ function homeView() {
       <div class="small muted" style="margin-top:10px">Daily goal ${money(goal)} · ${pct}%</div>
       <div class="goal"><i style="width:${pct}%"></i></div>
     </div>
+    ${
+      state.activeJob
+        ? `<div class="job-lock">
+            <b>Job in progress · ${escapeHtml(platformById[state.activeJob.platform]?.name || '')}</b>
+            <p>The other two are paused here so you don’t stack. Go offline in ${escapeHtml(otherNames(state.activeJob.platform))} in those apps — T3x Shift cannot flip their switches.</p>
+            <button class="btn" data-end-job>End job &amp; log it</button>
+          </div>`
+        : `<div class="install">
+            <b>One job at a time</b>
+            <p class="small muted" style="margin:6px 0 0">When Uber, Dasher, or Hello Panda pings, tap Start job on that card. The others pause here. Then go offline in the other two apps yourself.</p>
+          </div>`
+    }
     <div class="grid-3">
       ${PLATFORMS.map((p) => {
         const on = state.online[p.id]?.on;
-        return `<button class="plat-card ${p.id}" data-open-app="${p.id}">
+        const busy = state.activeJob?.platform === p.id;
+        const blocked = state.activeJob && state.activeJob.platform !== p.id;
+        return `<div class="plat-card ${p.id}${blocked ? ' dim' : ''}">
           <div>
             <div class="name">${p.name}</div>
-            <div class="kind">${p.kind}</div>
+            <div class="kind">${busy ? 'On a job' : blocked ? 'Paused' : p.kind}</div>
           </div>
-          <div class="go"><span>${on ? onlineLabel(p.id) : 'Open app'}</span><span class="dot ${on ? 'on' : ''}"></span></div>
-        </button>`;
+          <div class="go"><span>${busy ? 'JOB' : on ? onlineLabel(p.id) : 'Idle'}</span><span class="dot ${on || busy ? 'on' : ''}"></span></div>
+          ${
+            busy
+              ? `<button class="card-btn" data-end-job>End job</button>`
+              : `<button class="card-btn" data-start-job="${p.id}" ${blocked ? 'disabled' : ''}>Start job</button>`
+          }
+          <button class="card-btn ghost" data-open-app="${p.id}">Open</button>
+        </div>`;
       }).join('')}
     </div>
     <div class="card">
@@ -285,19 +357,26 @@ function appsView() {
     <div class="topbar"><div class="brand"><div><h1>Apps</h1><p>Go online without juggling three home screens</p></div></div></div>
     ${PLATFORMS.map((p) => {
       const on = state.online[p.id]?.on;
+      const busy = state.activeJob?.platform === p.id;
+      const blocked = state.activeJob && state.activeJob.platform !== p.id;
       return `<div class="card">
         <div class="row">
           <div class="trip-plat ${p.id}">${p.short.slice(0, 2).toUpperCase()}</div>
-          <div class="grow"><b>${p.name}</b><div class="small muted">${p.kind}</div></div>
+          <div class="grow"><b>${p.name}</b><div class="small muted">${busy ? 'Job in progress' : blocked ? 'Paused — one job at a time' : p.kind}</div></div>
         </div>
-        <button class="btn ghost" data-toggle="${p.id}" style="margin:8px 0">${on ? onlineLabel(p.id) : 'Mark live'}</button>
-        <div class="pair">
+        ${
+          busy
+            ? `<button class="btn" data-end-job style="margin:8px 0">End job &amp; log it</button>`
+            : `<button class="btn" data-start-job="${p.id}" style="margin:8px 0" ${blocked ? 'disabled' : ''}>Start job</button>`
+        }
+        <button class="btn ghost" data-toggle="${p.id}" ${blocked ? 'disabled' : ''}>${on ? onlineLabel(p.id) : 'Mark live'}</button>
+        <div class="pair" style="margin-top:8px">
           <button class="btn" data-open-app="${p.id}">Open ${p.short}</button>
           <button class="btn ghost" data-store="${p.id}">Store</button>
         </div>
       </div>`;
     }).join('')}
-    <p class="disclaimer">${APP} cannot log into Uber, DoorDash, or HungryPanda for you — those apps don’t offer a public driver API. Mark yourself live here, then jump into the official Uber, Dasher, or Hello Panda app.</p>
+    <p class="disclaimer">${APP} cannot read Uber, Dasher, or Hello Panda offers — those apps don’t allow it. When a ping hits, tap Start job. That pauses the other two here. Go offline in the other official apps yourself so you don’t double-book.</p>
     ${creditLine()}
   </div>${tabs()}`;
 }
@@ -381,7 +460,7 @@ function logSheet() {
       </div>
       <div class="pair">
         <div class="field"><label>Miles</label><input id="miles" type="number" inputmode="decimal" placeholder="0.0" /></div>
-        <div class="field"><label>Minutes</label><input id="minutes" type="number" inputmode="numeric" placeholder="15" /></div>
+        <div class="field"><label>Minutes</label><input id="minutes" type="number" inputmode="numeric" placeholder="15" value="${sheet.minutes ? escapeHtml(sheet.minutes) : ''}" /></div>
       </div>
       <div class="field"><label>Notes</label><input id="notes" placeholder="Airport, stack, promo…" /></div>
       <button class="btn" data-save-trip>Save trip</button>
@@ -466,8 +545,9 @@ function exportCsv() {
 }
 
 root.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-tab],[data-open],[data-open-app],[data-toggle],[data-store],[data-plat],[data-save-trip],[data-save-expense],[data-save-profile],[data-start],[data-demo],[data-demo-start],[data-export],[data-reset],[data-range],[data-close-sheet]');
+  const t = e.target.closest('[data-tab],[data-open],[data-open-app],[data-toggle],[data-store],[data-plat],[data-save-trip],[data-save-expense],[data-save-profile],[data-start],[data-demo],[data-demo-start],[data-export],[data-reset],[data-range],[data-close-sheet],[data-start-job],[data-end-job]');
   if (!t) return;
+  if (t.disabled || t.getAttribute('disabled') !== null) return;
 
   if (t.dataset.tab) {
     tab = t.dataset.tab;
@@ -480,7 +560,7 @@ root.addEventListener('click', (e) => {
     return;
   }
   if (t.dataset.open === 'log') {
-    sheet = { type: 'log', platform: 'uber' };
+    sheet = { type: 'log', platform: state.activeJob?.platform || 'uber' };
     render();
     return;
   }
@@ -511,6 +591,14 @@ root.addEventListener('click', (e) => {
     toggleOnline(t.dataset.toggle);
     return;
   }
+  if (t.dataset.startJob) {
+    startJob(t.dataset.startJob);
+    return;
+  }
+  if (t.hasAttribute('data-end-job')) {
+    endJob();
+    return;
+  }
   if (t.hasAttribute('data-save-trip')) {
     const fare = Number(document.getElementById('fare').value);
     if (!fare && fare !== 0) return showToast('Add a fare');
@@ -524,6 +612,7 @@ root.addEventListener('click', (e) => {
       notes: document.getElementById('notes').value.trim(),
       occurredAt: new Date().toISOString()
     });
+    state.activeJob = null;
     persist();
     sheet = null;
     tab = 'home';

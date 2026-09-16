@@ -16,6 +16,7 @@ export function emptyState() {
       onboarded: false
     },
     online: Object.fromEntries(PLATFORMS.map((p) => [p.id, { on: false, since: null }])),
+    activeJob: null,
     trips: [],
     expenses: [],
     apiToken: uid('dpk')

@@ -1,4 +1,4 @@
-const CACHE = 'driver-panda-v1';
+const CACHE = 't3x-shift-v1';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

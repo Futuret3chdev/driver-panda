@@ -5,7 +5,7 @@ export default function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   res.status(200).json({
     ok: true,
-    name: 'Driver Panda API',
+    name: 'T3x Shift API',
     ecosystem: 'MT ECO SYSTEM',
     developedBy: ['Futuret3ch', 'T3x', 'MemeTorrent'],
     version: '1.0.0',

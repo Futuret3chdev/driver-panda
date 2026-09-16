@@ -1,4 +1,4 @@
-# Driver Panda
+# T3x Shift
 
 **MT ECO SYSTEM**  
 Developed by **Futuret3ch**, **T3x** and **MemeTorrent**.
@@ -10,13 +10,13 @@ iPhone-first command center for people who drive **Uber**, **Dasher (DoorDash)**
 
 Add it to your iPhone Home Screen and it behaves like a native app: one tap to go live on each platform, log every drop, and see combined pay after mileage.
 
-**Not affiliated with Uber, DoorDash, HungryPanda, or Hello Panda.** Those companies do not publish a public driver API, so Driver Panda does not log into their accounts or scrape offers. You track trips here and jump into the official apps for dispatch.
+**Not affiliated with Uber, DoorDash, HungryPanda, or Hello Panda.** Those companies do not publish a public driver API, so T3x Shift does not log into their accounts or scrape offers. You track trips here and jump into the official apps for dispatch.
 
 ## iPhone install
 
 1. Open the site in **Safari** (not Chrome in-app browsers).
 2. Tap **Share** → **Add to Home Screen**.
-3. Open **Driver Panda** from the home screen.
+3. Open **T3x Shift** from the home screen.
 
 ## What it does
 

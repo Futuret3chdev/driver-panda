@@ -97,6 +97,7 @@ function onlineLabel(id) {
   return mins >= 60 ? `Live ${Math.floor(mins / 60)}h ${mins % 60}m` : `Live ${mins}m`;
 }
 
+const APP = 'T3x Shift';
 const ECO = 'MT ECO SYSTEM';
 const DEVELOPED = 'Developed by Futuret3ch, T3x and MemeTorrent';
 
@@ -165,16 +166,16 @@ function homeView() {
   const install = !isStandalone()
     ? `<div class="install">
         <b>Add to iPhone Home Screen</b>
-        <p class="small muted" style="margin:6px 0 0">Safari → Share → Add to Home Screen. Then Uber, Dasher, and Hello Panda are one tap away.</p>
+        <p class="small muted" style="margin:6px 0 0">Safari → Share → Add to Home Screen. Name it T3x Shift. Then Uber, Dasher, and Hello Panda are one tap away.</p>
       </div>`
     : '';
 
   return `<div class="shell">
     <div class="topbar">
       <div class="brand">
-        <img src="/icons/icon-192.png" alt="Driver Panda" />
+        <img src="/icons/icon-192.png" alt="T3x Shift" />
         <div>
-          <h1>Driver Panda</h1>
+          <h1>${APP}</h1>
           <p>${ECO}</p>
         </div>
       </div>
@@ -296,7 +297,7 @@ function appsView() {
         </div>
       </div>`;
     }).join('')}
-    <p class="disclaimer">Driver Panda cannot log into Uber, DoorDash, or HungryPanda for you — those apps don’t offer a public driver API. Mark yourself live here, then jump into the official app.</p>
+    <p class="disclaimer">${APP} cannot log into Uber, DoorDash, or HungryPanda for you — those apps don’t offer a public driver API. Mark yourself live here, then jump into the official Uber, Dasher, or Hello Panda app.</p>
     ${creditLine()}
   </div>${tabs()}`;
 }
@@ -333,7 +334,7 @@ function moreView() {
       <button class="btn ghost" data-open="expense" style="margin-top:8px">Add expense</button>
     </div>
     <div class="card">
-      <h2>Driver Panda API</h2>
+      <h2>${APP} API</h2>
       <p class="small muted">Stateless HTTP API for iPhone Shortcuts, sheets, and your own scripts. History stays on this phone.</p>
       <div class="code">GET  ${origin}/api/health
 GET  ${origin}/api/v1/platforms
@@ -358,7 +359,7 @@ Local token: ${token}</div>
       <p class="small" style="margin:0 0 8px"><b>${ECO}</b></p>
       <p class="small muted" style="margin:0">${DEVELOPED}.</p>
     </div>
-    <p class="disclaimer" style="margin-top:14px">Driver Panda is not affiliated with Uber, DoorDash, HungryPanda, or Hello Panda. Use official apps for offers, navigation, and payouts.</p>
+    <p class="disclaimer" style="margin-top:14px">${APP} is not affiliated with Uber, DoorDash, HungryPanda, or Hello Panda. Use official apps for offers, navigation, and payouts.</p>
     ${creditLine()}
   </div>${tabs()}`;
 }
@@ -408,9 +409,9 @@ function expenseSheet() {
 
 function welcomeView() {
   return `<div class="welcome">
-    <img class="mascot" src="/icons/icon-192.png" alt="Driver Panda" />
+    <img class="mascot" src="/icons/icon-192.png" alt="T3x Shift" />
     <p class="eco-mark">${ECO}</p>
-    <h1>Driver Panda</h1>
+    <h1>${APP}</h1>
     <p class="lead">One iPhone home screen for Uber, Dasher, and Hello Panda. Track every drop and jump into the right app.</p>
     <div class="tags">
       <span class="tag uber">Uber</span>
@@ -461,7 +462,7 @@ function exportCsv() {
       return [e.id || t.id, t.platform, t.occurredAt, e.fare, e.tip, e.miles, e.minutes, e.gross, e.mileageDeduction, e.net].join(',');
     })
     .join('\n');
-  download('driver-panda-trips.csv', header + rows, 'text/csv');
+  download('t3x-shift-trips.csv', header + rows, 'text/csv');
 }
 
 root.addEventListener('click', (e) => {
@@ -575,7 +576,7 @@ root.addEventListener('click', (e) => {
     return;
   }
   if (t.dataset.export === 'csv') return exportCsv();
-  if (t.dataset.export === 'json') return download('driver-panda-backup.json', JSON.stringify(state, null, 2), 'application/json');
+  if (t.dataset.export === 'json') return download('t3x-shift-backup.json', JSON.stringify(state, null, 2), 'application/json');
   if (t.hasAttribute('data-reset')) {
     if (confirm('Clear all trips and expenses on this iPhone?')) {
       const profile = state.profile;

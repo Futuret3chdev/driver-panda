@@ -1,6 +1,7 @@
 import { PLATFORMS } from './platforms.js';
 
-const KEY = 'driver-panda.v1';
+const KEY = 't3x-shift.v1';
+const LEGACY_KEY = 'driver-panda.v1';
 
 function uid(prefix) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -23,7 +24,7 @@ export function emptyState() {
 
 export function loadState() {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY) || localStorage.getItem(LEGACY_KEY);
     if (!raw) return emptyState();
     const parsed = JSON.parse(raw);
     return { ...emptyState(), ...parsed, profile: { ...emptyState().profile, ...(parsed.profile || {}) } };

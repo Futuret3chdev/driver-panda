@@ -67,5 +67,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(port, '0.0.0.0', () => {
-  console.log(`Driver Panda http://127.0.0.1:${port}`);
+  console.log(`T3x Shift http://127.0.0.1:${port}`);
 });

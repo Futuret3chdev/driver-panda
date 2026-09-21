@@ -461,7 +461,7 @@ function labCards() {
         <div class="small muted">${escapeHtml(app.line)}</div>
         <div class="small">${escapeHtml(app.by)}</div>
       </div>
-      <span class="pill">Open</span>
+      <span class="pill">Launch</span>
     </a>`
   ).join('');
 }

@@ -3,7 +3,7 @@ export const LAB = [
   {
     name: 'JAX',
     by: 'Futuret3ch and MemeTorrent',
-    line: 'The books for the MT ECO SYSTEM. Bills, GST, and tax figures from what you entered.',
+    line: 'For self-employed people, businesses, and corporations.',
     href: 'https://ledger-futuret3ch.vercel.app',
   },
   {

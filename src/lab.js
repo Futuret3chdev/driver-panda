@@ -1,9 +1,9 @@
 /** Live Futuret3ch apps. Every href was checked and opens the real product. */
 export const LAB = [
   {
-    name: 'Ledger',
-    by: 'Futuret3ch',
-    line: 'Schedule bills and the payments coming up, in Australian dollars.',
+    name: 'JAX',
+    by: 'Futuret3ch and MemeTorrent',
+    line: 'The books for the MT ECO SYSTEM. Bills, GST, and tax figures from what you entered.',
     href: 'https://ledger-futuret3ch.vercel.app',
   },
   {

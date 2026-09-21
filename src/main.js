@@ -354,7 +354,7 @@ function homeView() {
     </div>
     <button class="card lab-jump" type="button" data-tab="lab">
       <h2>Showroom</h2>
-      <p class="small muted" style="margin:0">Ledger and the other live Futuret3ch apps.</p>
+      <p class="small muted" style="margin:0">JAX and the other live Futuret3ch apps.</p>
     </button>
     <div class="card">
       <h2>Recent trips</h2>

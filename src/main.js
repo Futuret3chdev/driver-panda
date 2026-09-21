@@ -1,7 +1,10 @@
 import './styles.css';
+import { LAB } from './lab.js';
 import { PLATFORMS, platformById } from './platforms.js';
 import { enrichTrip, summarize } from './money.js';
 import { loadState, saveState, seedDemo, uid, emptyState } from './store.js';
+import { openPlatform } from './open-app.js';
+import { createDriveMachine, startDriveWatch } from './drive-listen.js';
 
 const root = document.getElementById('app');
 let state = loadState();
@@ -67,17 +70,69 @@ function monthSummary() {
   return summarize(state.trips, state.expenses, startOfMonth());
 }
 
-function openPlatform(p) {
-  // Only https App Store links — custom schemes (uberdriver://, doordashdasher://)
-  // make Safari say “cannot open the page because the address is invalid”.
-  const url = p.storeUrl || p.openUrl;
-  const a = document.createElement('a');
-  a.href = url;
-  a.rel = 'noopener';
-  a.target = '_blank';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+const driveMachine = createDriveMachine();
+let stopWatch = null;
+let listenStatus = 'off';
+
+function anyLive() {
+  return PLATFORMS.some((p) => state.online[p.id]?.on);
+}
+
+function liveIds() {
+  return PLATFORMS.filter((p) => state.online[p.id]?.on).map((p) => p.id);
+}
+
+function launchApp(p) {
+  if (!p) return;
+  openPlatform(p, {
+    onMiss: () => showToast(`Could not open ${p.name}. Install it, then tap Open.`)
+  });
+}
+
+function stopListener() {
+  if (stopWatch) {
+    stopWatch();
+    stopWatch = null;
+  }
+  driveMachine.reset();
+  listenStatus = 'off';
+}
+
+function ensureListener() {
+  if (!anyLive() && !state.activeJob) {
+    stopListener();
+    return;
+  }
+  if (stopWatch) return;
+  driveMachine.reset();
+  stopWatch = startDriveWatch({
+    onStatus: (s) => {
+      listenStatus = s;
+      render();
+    },
+    onError: () => {},
+    onSample: ({ v }) => {
+      const ev = driveMachine.sample(v);
+      if (ev === 'drive') onDrive();
+      if (ev === 'stop' && state.activeJob) showToast('Stopped — End job when you drop off');
+    }
+  });
+  try {
+    navigator.wakeLock?.request('screen').catch(() => {});
+  } catch {
+    /* optional */
+  }
+}
+
+function onDrive() {
+  if (state.activeJob) return;
+  const live = liveIds();
+  const id = live.includes(state.lastLive) ? state.lastLive : live[0];
+  if (!id) {
+    showToast('Driving — mark an app live to auto-start a job');
+    return;
+  }
+  startJob(id, { auto: true });
 }
 
 function pauseOthers(id) {
@@ -101,26 +156,38 @@ function toggleOnline(id) {
   const cur = state.online[id] || { on: false, since: null };
   if (cur.on) {
     state.online[id] = { on: false, since: null };
-  } else {
-    pauseOthers(id);
-    state.online[id] = { on: true, since: new Date().toISOString() };
-    showToast(`Live on ${platformById[id].name} — pause ${otherNames(id)} in those apps`);
+    persist();
+    ensureListener();
+    render();
+    return;
   }
+  state.lastLive = id;
+  state.online[id] = { on: true, since: new Date().toISOString() };
   persist();
+  ensureListener();
   render();
+  launchApp(platformById[id]);
+  showToast(`Live on ${platformById[id].name} — opened the app. Drive and the job starts.`);
 }
 
-function startJob(id) {
+function startJob(id, { auto = false } = {}) {
   if (state.activeJob && state.activeJob.platform !== id) {
     showToast(`Already on a ${platformById[state.activeJob.platform].name} job`);
     return;
   }
   pauseOthers(id);
+  state.lastLive = id;
   state.online[id] = { on: true, since: state.online[id]?.since || new Date().toISOString() };
   state.activeJob = { platform: id, startedAt: new Date().toISOString() };
   persist();
+  ensureListener();
   render();
-  showToast(`${platformById[id].name} job — go offline in ${otherNames(id)}`);
+  launchApp(platformById[id]);
+  showToast(
+    auto
+      ? `Driving — ${platformById[id].name} job started. Pause ${otherNames(id)} in those apps.`
+      : `${platformById[id].name} job — go offline in ${otherNames(id)}`
+  );
 }
 
 function endJob() {
@@ -147,6 +214,20 @@ const DEVELOPED = 'Developed by Futuret3ch, T3x and MemeTorrent';
 
 function creditLine() {
   return `<p class="credit"><span class="eco-mark">${ECO}</span>${DEVELOPED}</p>`;
+}
+
+function listenBanner() {
+  const live = anyLive();
+  if (listenStatus === 'denied') {
+    return `<div class="install"><b>Location blocked</b><p class="small muted" style="margin:6px 0 0">iPhone Settings → ${APP} → Location → While Using. Jobs cannot auto-start without it.</p></div>`;
+  }
+  if (listenStatus === 'watching') {
+    return `<div class="install"><b>Listener on</b><p class="small muted" style="margin:6px 0 0">Watching for a drive. ${live ? 'Live apps stay open.' : 'Mark an app live.'}</p></div>`;
+  }
+  if (live || state.activeJob) {
+    return `<div class="install"><b>Drive listener idle</b><p class="small muted" style="margin:6px 0 8px">Tap to watch GPS so jobs start when you roll.</p><button class="btn" data-listen>Watch driving</button></div>`;
+  }
+  return '';
 }
 
 function showToast(msg) {
@@ -237,10 +318,11 @@ function homeView() {
             <button class="btn" data-end-job>End job &amp; log it</button>
           </div>`
         : `<div class="install">
-            <b>One job at a time</b>
-            <p class="small muted" style="margin:6px 0 0">When Uber, Dasher, or Hello Panda pings, tap Start job on that card. The others pause here. Then go offline in the other two apps yourself.</p>
+            <b>Go live, then drive</b>
+            <p class="small muted" style="margin:6px 0 0">Mark live opens that driver app. The listener watches GPS — when you start moving, the job starts on the live app. One job at a time.</p>
           </div>`
     }
+    ${listenBanner()}
     <div class="grid-3">
       ${PLATFORMS.map((p) => {
         const on = state.online[p.id]?.on;
@@ -255,7 +337,9 @@ function homeView() {
           ${
             busy
               ? `<button class="card-btn" data-end-job>End job</button>`
-              : `<button class="card-btn" data-start-job="${p.id}" ${blocked ? 'disabled' : ''}>Start job</button>`
+              : on
+                ? `<button class="card-btn" data-start-job="${p.id}" ${blocked ? 'disabled' : ''}>Start job</button>`
+                : `<button class="card-btn" data-toggle="${p.id}" ${blocked ? 'disabled' : ''}>Go live</button>`
           }
           <button class="card-btn ghost" data-open-app="${p.id}">Open</button>
         </div>`;
@@ -268,6 +352,10 @@ function homeView() {
       </div>
       <div class="small muted">Net after IRS mileage + expenses: <b style="color:var(--text)">${money(week.net)}</b></div>
     </div>
+    <button class="card lab-jump" type="button" data-tab="lab">
+      <h2>Showroom</h2>
+      <p class="small muted" style="margin:0">Ledger and the other live Futuret3ch apps.</p>
+    </button>
     <div class="card">
       <h2>Recent trips</h2>
       ${recentTrips(6)}
@@ -360,9 +448,38 @@ function appsView() {
         </div>
       </div>`;
     }).join('')}
-    <p class="disclaimer">${APP} cannot read Uber, Dasher, or Hello Panda offers — those apps don’t allow it. When a ping hits, tap Start job. That pauses the other two here. Go offline in the other official apps yourself so you don’t double-book.</p>
+    <p class="disclaimer">${APP} cannot read Uber, Dasher, or Hello Panda offers — those apps don’t allow it. Mark live opens the real app. Drive with location on and the job starts. Pause the other official apps yourself so you don’t double-book.</p>
     ${creditLine()}
   </div>${tabs()}`;
+}
+
+function labCards() {
+  return LAB.map(
+    (app) => `<a class="lab-card" href="${escapeHtml(app.href)}" target="_blank" rel="noopener noreferrer">
+      <div class="grow">
+        <b>${escapeHtml(app.name)}</b>
+        <div class="small muted">${escapeHtml(app.line)}</div>
+        <div class="small">${escapeHtml(app.by)}</div>
+      </div>
+      <span class="pill">Open</span>
+    </a>`
+  ).join('');
+}
+
+function labView() {
+  return `<div class="shell">
+    <div class="topbar">
+      <div class="brand"><div><h1>Showroom</h1><p>Live apps. Nothing here is a mock.</p></div></div>
+      ${state.profile.onboarded ? '<button class="pill logout-pill" data-logout type="button">Log out</button>' : '<button class="pill" data-tab="home" type="button">Back</button>'}
+    </div>
+    <p class="small muted">Each card opens the running app. T3x Shift is this page.</p>
+    ${labCards()}
+    <div class="card">
+      <h2>T3x Shift</h2>
+      <p class="small muted" style="margin:0">This app. Uber, Dasher, and Hello Panda on one iPhone screen.</p>
+    </div>
+    ${creditLine()}
+  </div>${state.profile.onboarded ? tabs() : ''}`;
 }
 
 function moreView() {
@@ -491,18 +608,26 @@ function welcomeView() {
       <button class="btn" data-start>Start on this iPhone</button>
       <button class="btn ghost" data-demo-start>Preview with sample trips</button>
     </div>
+    <div class="showroom">
+      <p class="eco-mark">Showroom</p>
+      <h2>Apps on the bench</h2>
+      <p class="lead">Live Futuret3ch apps. Each one opens the real product.</p>
+      ${labCards()}
+    </div>
     <p class="credit" style="margin-top:14px">${DEVELOPED}.</p>
     <p class="disclaimer">Not affiliated with Uber, DoorDash, or HungryPanda.</p>
   </div>`;
 }
 
 function render() {
-  if (!state.profile.onboarded) {
+  if (!state.profile.onboarded && tab !== 'lab') {
     root.innerHTML = welcomeView();
     return;
   }
   let html = '';
-  if (tab === 'stats') html = statsView();
+  if (tab === 'lab') html = labView();
+  else if (!state.profile.onboarded) html = welcomeView();
+  else if (tab === 'stats') html = statsView();
   else if (tab === 'apps') html = appsView();
   else if (tab === 'more') html = moreView();
   else html = homeView();
@@ -533,7 +658,7 @@ function exportCsv() {
 }
 
 root.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-tab],[data-open],[data-open-app],[data-toggle],[data-store],[data-plat],[data-save-trip],[data-save-expense],[data-save-profile],[data-start],[data-demo],[data-demo-start],[data-export],[data-reset],[data-range],[data-close-sheet],[data-start-job],[data-end-job],[data-logout]');
+  const t = e.target.closest('[data-tab],[data-open],[data-open-app],[data-toggle],[data-store],[data-plat],[data-save-trip],[data-save-expense],[data-save-profile],[data-start],[data-demo],[data-demo-start],[data-export],[data-reset],[data-range],[data-close-sheet],[data-start-job],[data-end-job],[data-logout],[data-listen]');
   if (!t) return;
   if (t.disabled || t.getAttribute('disabled') !== null) return;
 
@@ -541,6 +666,7 @@ root.addEventListener('click', (e) => {
     if (state.activeJob && !confirm('A job is in progress. Log out anyway?')) return;
     state.activeJob = null;
     for (const p of PLATFORMS) state.online[p.id] = { on: false, since: null };
+    stopListener();
     state.profile.onboarded = false;
     persist();
     tab = 'home';
@@ -579,12 +705,17 @@ root.addEventListener('click', (e) => {
     render();
     return;
   }
+  if (t.hasAttribute('data-listen')) {
+    ensureListener();
+    render();
+    return;
+  }
   if (t.dataset.openApp) {
-    openPlatform(platformById[t.dataset.openApp]);
+    launchApp(platformById[t.dataset.openApp]);
     return;
   }
   if (t.dataset.store) {
-    window.open(platformById[t.dataset.store].storeUrl, '_blank');
+    openPlatform(platformById[t.dataset.store], { store: true });
     return;
   }
   if (t.dataset.toggle) {

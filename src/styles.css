@@ -430,6 +430,23 @@ input:focus, select:focus, textarea:focus { border-color: rgba(200, 242, 74, 0.5
 
 .empty { text-align: center; color: var(--muted); padding: 18px 8px; }
 
+.lab-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px;
+  margin: 0 0 10px;
+}
+.lab-jump { width: 100%; text-align: left; }
+.showroom { margin-top: 28px; }
+.showroom h2 { margin: 0 0 6px; text-align: center; font-size: 22px; letter-spacing: -0.04em; }
+.showroom .lead { margin-bottom: 14px; }
+
 @media (min-width: 900px) {
   body { background: #050507; }
   #app { display: grid; place-items: start center; }

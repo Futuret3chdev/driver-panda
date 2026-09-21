@@ -21,7 +21,9 @@ Add it to your iPhone Home Screen and it behaves like a native app: one tap to g
 ## What it does
 
 - Combined today / week / month earnings across Uber, Dasher, and Hello Panda
-- One-tap **Open app** / App Store links for each driver app
+- **Go live** opens the real Uber / Dasher / Hello Panda app (native scheme — not a Safari dead tab)
+- GPS **drive listener** auto-starts a job when you start moving with an app live
+- One-tap **Open app** / Store links for each driver app
 - Live / offline toggles with a shift timer
 - Trip + expense log, CSV and JSON export
 - IRS mileage estimate (72.5¢/mi Jan–Jun 2026, **76¢/mi from Jul 1 2026**)

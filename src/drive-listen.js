@@ -16,6 +16,15 @@ export function haversineM(a, b) {
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
 }
 
+export function addLegMeters(prev, next) {
+  if (!prev || !next) return 0;
+  const dt = (next.t - prev.t) / 1000;
+  if (dt < 0.5 || dt > 90) return 0;
+  const meters = haversineM(prev, next);
+  if (meters < 3 || meters > 1500) return 0;
+  return meters;
+}
+
 export function speedMps(prev, next) {
   if (!prev || !next) return 0;
   const reported = next.speed;

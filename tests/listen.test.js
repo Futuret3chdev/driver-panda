@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { haversineM, speedMps, createDriveMachine } from '../src/drive-listen.js';
+import { haversineM, speedMps, createDriveMachine, addLegMeters } from '../src/drive-listen.js';
 
 test('haversine is ~0 for the same point', () => {
   assert.equal(haversineM({ lat: -37.81, lon: 144.96 }, { lat: -37.81, lon: 144.96 }), 0);
@@ -29,6 +29,14 @@ test('drive machine fires drive after sustained speed', () => {
   assert.equal(m.sample(5, t0 + 3000), 'idle');
   assert.equal(m.sample(5, t0 + 6000), 'drive');
   assert.equal(m.sample(5, t0 + 7000), 'driving');
+});
+
+test('addLegMeters ignores a GPS jump', () => {
+  const a = { t: 0, lat: -37.81, lon: 144.96 };
+  const jump = { t: 2000, lat: -37.9, lon: 145.1 };
+  assert.equal(addLegMeters(a, jump), 0);
+  const step = { t: 2000, lat: -37.8104, lon: 144.96 };
+  assert.ok(addLegMeters(a, step) > 20);
 });
 
 test('drive machine does not fire on a walk', () => {

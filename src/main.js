@@ -4,7 +4,7 @@ import { PLATFORMS, platformById } from './platforms.js';
 import { enrichTrip, summarize } from './money.js';
 import { loadState, saveState, seedDemo, uid, emptyState } from './store.js';
 import { openPlatform } from './open-app.js';
-import { createDriveMachine, startDriveWatch } from './drive-listen.js';
+import { createDriveMachine, startDriveWatch, addLegMeters } from './drive-listen.js';
 
 const root = document.getElementById('app');
 let state = loadState();
@@ -58,16 +58,20 @@ function startOfMonth(d = new Date()) {
   return x.getTime();
 }
 
+function countedTrips() {
+  return state.trips.filter((trip) => trip.source !== 'sample');
+}
+
 function todaySummary() {
-  return summarize(state.trips, state.expenses, startOfDay(), startOfDay() + 86400000);
+  return summarize(countedTrips(), state.expenses, startOfDay(), startOfDay() + 86400000);
 }
 
 function weekSummary() {
-  return summarize(state.trips, state.expenses, startOfWeek(), startOfWeek() + 7 * 86400000);
+  return summarize(countedTrips(), state.expenses, startOfWeek(), startOfWeek() + 7 * 86400000);
 }
 
 function monthSummary() {
-  return summarize(state.trips, state.expenses, startOfMonth());
+  return summarize(countedTrips(), state.expenses, startOfMonth());
 }
 
 const driveMachine = createDriveMachine();
@@ -111,10 +115,15 @@ function ensureListener() {
       render();
     },
     onError: () => {},
-    onSample: ({ v }) => {
+    onSample: ({ v, pos }) => {
+      if (state.activeJob && pos) {
+        const added = addLegMeters(state.activeJob.lastFix, pos);
+        state.activeJob.lastFix = { t: pos.t, lat: pos.lat, lon: pos.lon };
+        if (added) state.activeJob.meters = (state.activeJob.meters || 0) + added;
+      }
       const ev = driveMachine.sample(v);
       if (ev === 'drive') onDrive();
-      if (ev === 'stop' && state.activeJob) showToast('Stopped — End job when you drop off');
+      if (ev === 'stop' && state.activeJob) endJob('drive');
     }
   });
   try {
@@ -178,7 +187,7 @@ function startJob(id, { auto = false } = {}) {
   pauseOthers(id);
   state.lastLive = id;
   state.online[id] = { on: true, since: state.online[id]?.since || new Date().toISOString() };
-  state.activeJob = { platform: id, startedAt: new Date().toISOString() };
+  state.activeJob = { platform: id, startedAt: new Date().toISOString(), meters: 0, lastFix: null };
   persist();
   ensureListener();
   render();
@@ -190,15 +199,36 @@ function startJob(id, { auto = false } = {}) {
   );
 }
 
-function endJob() {
+function milesFromMeters(meters) {
+  return Math.round(((Number(meters) || 0) / 1609.344) * 10) / 10;
+}
+
+function endJob(source = 'ended') {
   const job = state.activeJob;
   if (!job) return;
   const minutes = Math.max(1, Math.round((Date.now() - new Date(job.startedAt).getTime()) / 60000));
-  sheet = { type: 'log', platform: job.platform, minutes };
+  const miles = milesFromMeters(job.meters);
+  const trip = {
+    id: uid('trip'),
+    platform: job.platform,
+    fare: 0,
+    tip: 0,
+    miles,
+    minutes,
+    notes: '',
+    occurredAt: new Date().toISOString(),
+    startedAt: job.startedAt,
+    status: 'completed',
+    source,
+    payPending: true
+  };
+  state.trips.push(trip);
   state.activeJob = null;
   persist();
+  sheet = { type: 'log', platform: job.platform, minutes, miles, tripId: trip.id };
   tab = 'home';
   render();
+  showToast(source === 'drive' ? 'Stopped. Job completed — add the fare from the driver app.' : 'Job completed. Add the fare.');
 }
 
 function onlineLabel(id) {
@@ -260,8 +290,8 @@ function tabs() {
 }
 
 function recentTrips(limit = 8) {
-  const trips = [...state.trips].sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt)).slice(0, limit);
-  if (!trips.length) return `<div class="empty">No trips yet. Tap + after you drop off.</div>`;
+  const trips = [...countedTrips()].sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt)).slice(0, limit);
+  if (!trips.length) return `<div class="empty">No completed jobs yet. Go live, drive, and the job is saved when you stop.</div>`;
   return trips
     .map((t) => {
       const p = platformById[t.platform] || { name: t.platform, short: '?' };
@@ -272,7 +302,7 @@ function recentTrips(limit = 8) {
         <div class="trip-plat ${t.platform}">${escapeHtml(p.short.slice(0, 2).toUpperCase())}</div>
         <div class="grow">
           <b>${escapeHtml(p.name)}</b>
-          <div class="small muted">${escapeHtml(time)} · ${e.miles} mi · ${e.minutes}m</div>
+          <div class="small muted">${escapeHtml(time)} · ${e.miles} mi · ${e.minutes}m${t.payPending ? ' · fare not entered' : ''}${t.status === 'completed' ? ' · completed' : ''}</div>
         </div>
         <div style="text-align:right">
           <b>${money(e.gross)}</b>
@@ -303,7 +333,7 @@ function homeView() {
       <div class="label">Today across all apps</div>
       <div class="dollars">${money(today.gross)}</div>
       <div class="hero-row">
-        <div class="stat"><b>${today.trips}</b><span>trips</span></div>
+        <div class="stat"><b>${today.trips}</b><span>completed</span></div>
         <div class="stat"><b>${money(today.hourly)}</b><span>/ hour</span></div>
         <div class="stat"><b>${today.miles}</b><span>miles</span></div>
       </div>
@@ -319,7 +349,7 @@ function homeView() {
           </div>`
         : `<div class="install">
             <b>Go live, then drive</b>
-            <p class="small muted" style="margin:6px 0 0">Mark live opens that driver app. The listener watches GPS — when you start moving, the job starts on the live app. One job at a time.</p>
+            <p class="small muted" style="margin:6px 0 0">Mark live opens that driver app. When the car stops for a minute and a half, the job is saved as completed with the miles this phone drove. Add the fare from Uber, Dasher, or Hello Panda. This site cannot read those accounts.</p>
           </div>`
     }
     ${listenBanner()}
@@ -357,7 +387,7 @@ function homeView() {
       <p class="small muted" style="margin:0">JAX and the other live Futuret3ch apps.</p>
     </button>
     <div class="card">
-      <h2>Recent trips</h2>
+      <h2>Completed jobs</h2>
       ${recentTrips(6)}
     </div>
     ${creditLine()}
@@ -367,7 +397,7 @@ function homeView() {
 function weekBars() {
   const days = [...Array(7)].map((_, i) => {
     const d = new Date(startOfWeek() + i * 86400000);
-    const s = summarize(state.trips, [], d.getTime(), d.getTime() + 86400000);
+    const s = summarize(countedTrips(), [], d.getTime(), d.getTime() + 86400000);
     return { label: d.toLocaleDateString(undefined, { weekday: 'narrow' }), gross: s.gross };
   });
   const max = Math.max(1, ...days.map((d) => d.gross));
@@ -394,7 +424,7 @@ function statsView() {
       <div class="label">Gross</div>
       <div class="dollars">${money(s.gross)}</div>
       <div class="hero-row">
-        <div class="stat"><b>${s.trips}</b><span>trips</span></div>
+        <div class="stat"><b>${s.trips}</b><span>completed</span></div>
         <div class="stat"><b>${money(s.hourly)}</b><span>/ hour</span></div>
         <div class="stat"><b>${s.miles}</b><span>miles</span></div>
       </div>
@@ -553,7 +583,7 @@ function logSheet() {
   return `<div class="sheet-bg" data-close-sheet>
     <div class="sheet" data-sheet>
       <div class="handle"></div>
-      <h2 style="margin:0 0 12px">Log a trip</h2>
+      <h2 style="margin:0 0 12px">${sheet.tripId ? 'Job completed' : 'Log a trip'}</h2>
       <div class="seg">
         ${PLATFORMS.map(
           (p) => `<button class="${platform === p.id ? 'active ' + p.id : ''}" data-plat="${p.id}">${p.short}</button>`
@@ -564,11 +594,11 @@ function logSheet() {
         <div class="field"><label>Tip</label><input id="tip" type="number" inputmode="decimal" placeholder="0.00" /></div>
       </div>
       <div class="pair">
-        <div class="field"><label>Miles</label><input id="miles" type="number" inputmode="decimal" placeholder="0.0" /></div>
+        <div class="field"><label>Miles</label><input id="miles" type="number" inputmode="decimal" placeholder="0.0" value="${sheet.miles ? escapeHtml(sheet.miles) : ''}" /></div>
         <div class="field"><label>Minutes</label><input id="minutes" type="number" inputmode="numeric" placeholder="15" value="${sheet.minutes ? escapeHtml(sheet.minutes) : ''}" /></div>
       </div>
       <div class="field"><label>Notes</label><input id="notes" placeholder="Airport, stack, promo…" /></div>
-      <button class="btn" data-save-trip>Save trip</button>
+      <button class="btn" data-save-trip>${sheet.tripId ? 'Save fare' : 'Save trip'}</button>
     </div>
   </div>`;
 }
@@ -731,24 +761,36 @@ root.addEventListener('click', (e) => {
     return;
   }
   if (t.hasAttribute('data-save-trip')) {
-    const fare = Number(document.getElementById('fare').value);
-    if (!fare && fare !== 0) return showToast('Add a fare');
-    state.trips.push({
-      id: uid('trip'),
+    const fareRaw = document.getElementById('fare').value;
+    if (fareRaw === '' && !sheet.tripId) return showToast('Add a fare');
+    const fare = Number(fareRaw) || 0;
+    const next = {
       platform: sheet.platform,
       fare,
       tip: Number(document.getElementById('tip').value) || 0,
       miles: Number(document.getElementById('miles').value) || 0,
       minutes: Number(document.getElementById('minutes').value) || 0,
       notes: document.getElementById('notes').value.trim(),
-      occurredAt: new Date().toISOString()
-    });
+      status: 'completed',
+      payPending: fareRaw === ''
+    };
+    if (sheet.tripId) {
+      const existing = state.trips.find((trip) => trip.id === sheet.tripId);
+      if (existing) Object.assign(existing, next);
+    } else {
+      state.trips.push({
+        id: uid('trip'),
+        ...next,
+        source: 'logged',
+        occurredAt: new Date().toISOString()
+      });
+    }
     state.activeJob = null;
     persist();
     sheet = null;
     tab = 'home';
     render();
-    showToast('Trip saved');
+    showToast('Completed job saved');
     return;
   }
   if (t.hasAttribute('data-save-expense')) {

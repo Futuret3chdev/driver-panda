@@ -62,7 +62,9 @@ export function seedDemo(state) {
       id: uid('trip'),
       ...s,
       occurredAt: d.toISOString(),
-      notes: ''
+      notes: '',
+      source: 'sample',
+      status: 'sample'
     });
   });
 

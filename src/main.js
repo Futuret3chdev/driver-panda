@@ -136,11 +136,7 @@ function ensureListener() {
 function onDrive() {
   if (state.activeJob) return;
   const live = liveIds();
-  const id = live.includes(state.lastLive) ? state.lastLive : live[0];
-  if (!id) {
-    showToast('Driving — mark an app live to auto-start a job');
-    return;
-  }
+  const id = live.includes(state.lastLive) ? state.lastLive : live[0] || state.lastLive || 'uber';
   startJob(id, { auto: true });
 }
 
@@ -225,10 +221,9 @@ function endJob(source = 'ended') {
   state.trips.push(trip);
   state.activeJob = null;
   persist();
-  sheet = { type: 'log', platform: job.platform, minutes, miles, tripId: trip.id };
-  tab = 'home';
+  ensureListener();
   render();
-  showToast(source === 'drive' ? 'Stopped. Job completed — add the fare from the driver app.' : 'Job completed. Add the fare.');
+  showToast('Job completed');
 }
 
 function onlineLabel(id) {
@@ -298,17 +293,17 @@ function recentTrips(limit = 8) {
       const e = enrichTrip(t);
       const when = new Date(t.occurredAt);
       const time = when.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
-      return `<div class="row">
+      return `<button type="button" class="row" data-edit-trip="${escapeHtml(t.id)}" style="width:100%;background:transparent;color:inherit;text-align:left">
         <div class="trip-plat ${t.platform}">${escapeHtml(p.short.slice(0, 2).toUpperCase())}</div>
         <div class="grow">
           <b>${escapeHtml(p.name)}</b>
-          <div class="small muted">${escapeHtml(time)} · ${e.miles} mi · ${e.minutes}m${t.payPending ? ' · fare not entered' : ''}${t.status === 'completed' ? ' · completed' : ''}</div>
+          <div class="small muted">${escapeHtml(time)} · ${e.miles} mi · ${e.minutes}m${t.payPending ? ' · fare later' : ''}</div>
         </div>
         <div style="text-align:right">
-          <b>${money(e.gross)}</b>
-          <div class="small muted">tip ${money(e.tip)}</div>
+          <b>${t.payPending ? '—' : money(e.gross)}</b>
+          <div class="small muted">${t.payPending ? 'completed' : 'tip ' + money(e.tip)}</div>
         </div>
-      </div>`;
+      </button>`;
     })
     .join('');
 }
@@ -349,7 +344,7 @@ function homeView() {
           </div>`
         : `<div class="install">
             <b>Go live, then drive</b>
-            <p class="small muted" style="margin:6px 0 0">Mark live opens that driver app. When the car stops for a minute and a half, the job is saved as completed with the miles this phone drove. Add the fare from Uber, Dasher, or Hello Panda. This site cannot read those accounts.</p>
+            <p class="small muted" style="margin:6px 0 0">Leave this page open. Driving starts the job. Stopping saves it. The fare is optional — tap the job later if you want the amount. Uber does not send that number.</p>
           </div>`
     }
     ${listenBanner()}
@@ -590,14 +585,14 @@ function logSheet() {
         ).join('')}
       </div>
       <div class="pair">
-        <div class="field"><label>Fare</label><input id="fare" type="number" inputmode="decimal" placeholder="0.00" /></div>
-        <div class="field"><label>Tip</label><input id="tip" type="number" inputmode="decimal" placeholder="0.00" /></div>
+        <div class="field"><label>Fare</label><input id="fare" type="number" inputmode="decimal" placeholder="0.00" value="${sheet.fare ? escapeHtml(sheet.fare) : ''}" /></div>
+        <div class="field"><label>Tip</label><input id="tip" type="number" inputmode="decimal" placeholder="0.00" value="${sheet.tip ? escapeHtml(sheet.tip) : ''}" /></div>
       </div>
       <div class="pair">
         <div class="field"><label>Miles</label><input id="miles" type="number" inputmode="decimal" placeholder="0.0" value="${sheet.miles ? escapeHtml(sheet.miles) : ''}" /></div>
         <div class="field"><label>Minutes</label><input id="minutes" type="number" inputmode="numeric" placeholder="15" value="${sheet.minutes ? escapeHtml(sheet.minutes) : ''}" /></div>
       </div>
-      <div class="field"><label>Notes</label><input id="notes" placeholder="Airport, stack, promo…" /></div>
+      <div class="field"><label>Notes</label><input id="notes" placeholder="Airport, stack, promo…" value="${escapeHtml(sheet.notes || '')}" /></div>
       <button class="btn" data-save-trip>${sheet.tripId ? 'Save fare' : 'Save trip'}</button>
     </div>
   </div>`;
@@ -688,7 +683,7 @@ function exportCsv() {
 }
 
 root.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-tab],[data-open],[data-open-app],[data-toggle],[data-store],[data-plat],[data-save-trip],[data-save-expense],[data-save-profile],[data-start],[data-demo],[data-demo-start],[data-export],[data-reset],[data-range],[data-close-sheet],[data-start-job],[data-end-job],[data-logout],[data-listen]');
+  const t = e.target.closest('[data-tab],[data-open],[data-open-app],[data-toggle],[data-store],[data-plat],[data-save-trip],[data-save-expense],[data-save-profile],[data-start],[data-demo],[data-demo-start],[data-export],[data-reset],[data-range],[data-close-sheet],[data-start-job],[data-end-job],[data-edit-trip],[data-logout],[data-listen]');
   if (!t) return;
   if (t.disabled || t.getAttribute('disabled') !== null) return;
 
@@ -754,6 +749,22 @@ root.addEventListener('click', (e) => {
   }
   if (t.dataset.startJob) {
     startJob(t.dataset.startJob);
+    return;
+  }
+  if (t.dataset.editTrip) {
+    const trip = state.trips.find((item) => item.id === t.dataset.editTrip);
+    if (!trip) return;
+    sheet = {
+      type: 'log',
+      platform: trip.platform,
+      minutes: trip.minutes,
+      miles: trip.miles,
+      tripId: trip.id,
+      fare: trip.fare,
+      tip: trip.tip,
+      notes: trip.notes || ''
+    };
+    render();
     return;
   }
   if (t.hasAttribute('data-end-job')) {
@@ -853,3 +864,4 @@ root.addEventListener('click', (e) => {
 });
 
 render();
+if (state.profile.onboarded) ensureListener();

@@ -2,7 +2,7 @@
   "name": "driver-panda",
   "version": "1.0.0",
   "private": true,
-  "description": "T3x Shift — MT ECO SYSTEM. Developed by Futuret3ch, T3x and MemeTorrent. iPhone command center for Uber, Dasher, and Hello Panda.",
+  "description": "T3x Shift — T3x Ecosystem. Developed by Futuret3ch, T3x and Futuret3ch. iPhone command center for Uber, Dasher, and Hello Panda.",
   "type": "module",
   "scripts": {
     "dev": "vite",

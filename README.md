@@ -1,7 +1,7 @@
 # T3x Shift
 
-**MT ECO SYSTEM**  
-Developed by **Futuret3ch**, **T3x** and **MemeTorrent**.
+**T3x Ecosystem**  
+Developed by **Futuret3ch**, **T3x** and **Futuret3ch**.
 
 Live: **[https://driver-panda.vercel.app](https://driver-panda.vercel.app)**  
 GitHub: **[https://github.com/Futuret3chdev/driver-panda](https://github.com/Futuret3chdev/driver-panda)**

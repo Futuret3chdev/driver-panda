@@ -8,7 +8,7 @@ export default function handler(req, res) {
     info: {
       title: 'T3x Shift API',
       version: '1.0.0',
-      description: 'MT ECO SYSTEM. Developed by Futuret3ch, T3x and MemeTorrent. Compute combined Uber, Dasher, and Hello Panda trip math. Trip history lives on the driver’s iPhone; this API is stateless.'
+      description: 'T3x Ecosystem. Developed by Futuret3ch, T3x and Futuret3ch. Compute combined Uber, Dasher, and Hello Panda trip math. Trip history lives on the driver’s iPhone; this API is stateless.'
     },
     paths: {
       '/api/health': { get: { summary: 'Health check' } },

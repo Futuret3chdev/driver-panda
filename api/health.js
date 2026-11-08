@@ -6,8 +6,8 @@ export default function handler(req, res) {
   res.status(200).json({
     ok: true,
     name: 'T3x Shift API',
-    ecosystem: 'MT ECO SYSTEM',
-    developedBy: ['Futuret3ch', 'T3x', 'MemeTorrent'],
+    ecosystem: 'T3x Ecosystem',
+    developedBy: ['Futuret3ch', 'T3x', 'Futuret3ch'],
     version: '1.0.0',
     platforms: ['uber', 'dasher', 'panda']
   });

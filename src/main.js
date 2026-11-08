@@ -234,8 +234,8 @@ function onlineLabel(id) {
 }
 
 const APP = 'T3x Shift';
-const ECO = 'MT ECO SYSTEM';
-const DEVELOPED = 'Developed by Futuret3ch, T3x and MemeTorrent';
+const ECO = 'T3x Ecosystem';
+const DEVELOPED = 'Developed by Futuret3ch, T3x and Futuret3ch';
 
 function creditLine() {
   return `<p class="credit"><span class="eco-mark">${ECO}</span>${DEVELOPED}</p>`;
